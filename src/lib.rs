@@ -73,5 +73,6 @@ pub mod server {
     #[derive(Debug, Serialize)]
     pub struct Generate {
         pub id: String,
+        pub in_reply_to: u32,
     }
 }

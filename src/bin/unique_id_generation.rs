@@ -43,7 +43,10 @@ async fn main() -> Result<()> {
                         generate.msg_id
                     );
 
-                    let body = server::ServerBody::GenerateOk(server::Generate { id: unique_id });
+                    let body = server::ServerBody::GenerateOk(server::Generate {
+                        id: unique_id,
+                        in_reply_to: generate.msg_id,
+                    });
                     let server_msg = server::ServerMessage {
                         src: node_id.clone().unwrap(),
                         dest: client_msg.src,
