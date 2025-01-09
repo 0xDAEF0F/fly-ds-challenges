@@ -13,6 +13,7 @@ pub mod client {
     }
 
     #[derive(Debug, Deserialize)]
+    #[serde(untagged)]
     pub enum ClientBody {
         Init(Init),
         Echo(Echo),
@@ -46,6 +47,7 @@ pub mod server {
     }
 
     #[derive(Debug, Serialize)]
+    #[serde(untagged)]
     pub enum ServerBody {
         Init(Init),
         Echo(Echo),
