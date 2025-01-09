@@ -1,37 +1,6 @@
-#![allow(dead_code)]
-
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use fly_ds_challenges::{client, server};
 use tokio::io::{self, AsyncBufReadExt, BufReader};
-
-#[derive(Debug, Deserialize)]
-enum ClientMessage {
-    Init(Init),
-    Echo(Echo),
-}
-
-#[derive(Debug, Deserialize)]
-struct Init {
-    r#type: String,
-    msg_id: u32,
-    node_id: String,
-    node_ids: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct Echo {
-    src: String,
-    dest: String,
-    body: Body,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct Body {
-    r#type: String,
-    in_reply_to: Option<u32>,
-    msg_id: u32,
-    echo: String,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -47,45 +16,38 @@ async fn main() -> Result<()> {
     eprintln!("Awaiting messages");
 
     while let Some(line) = lines.next_line().await? {
-        eprintln!("Message received: {}. Deserializing", line);
-        match serde_json::from_str::<ClientMessage>(&line) {
-            Ok(client_msg) => match client_msg {
-                ClientMessage::Init(init) => {
-                    node_id = Some(init.node_id);
-                    let init_reply = serde_json::json!({
-                        "type": "init_ok",
-                        "in_reply_to": init.msg_id
-                    });
-                    println!("{}", init_reply.to_string());
-                }
-                ClientMessage::Echo(echo) => {
-                    if node_id.as_ref().is_some_and(|id| id == echo.dest.as_str()) {
-                        // reply back
-                        let echo = Echo {
-                            src: node_id.clone().unwrap(),
-                            dest: echo.src,
-                            body: Body {
-                                r#type: "echo".to_string(),
-                                in_reply_to: Some(echo.body.msg_id),
-                                msg_id: msg_id,
-                                echo: echo.body.echo,
-                            },
-                        };
-                        match serde_json::to_string(&echo) {
-                            Ok(echo_str) => {
-                                msg_id += 1;
-                                println!("{}", echo_str);
-                            }
-                            Err(e) => {
-                                eprintln!("Error serializing echo message: {:?}", e);
-                                break;
-                            }
-                        }
+        eprintln!("Message received: {}", line);
+        match serde_json::from_str::<client::ClientMessage>(&line) {
+            Ok(client_msg) => match client_msg.body {
+                client::ClientBody::Init(init) => {
+                    if node_id.is_some() {
+                        eprintln!("node id already initialized");
+                        continue;
                     }
+                    node_id = Some(init.node_id);
+                }
+                client::ClientBody::Echo(echo) => {
+                    if node_id.is_none() {
+                        eprintln!("node id not initialized. can not echo.");
+                        break;
+                    }
+                    let server_msg = server::ServerMessage {
+                        src: node_id.clone().unwrap(),
+                        dest: client_msg.src,
+                        body: server::ServerBody::Echo(server::Echo {
+                            r#type: "echo_ok".to_string(),
+                            in_reply_to: echo.msg_id,
+                            msg_id,
+                            echo: echo.echo,
+                        }),
+                    };
+                    let server_msg_str = serde_json::to_string(&server_msg)?;
+                    println!("{}", server_msg_str);
+                    msg_id += 1;
                 }
             },
             Err(e) => {
-                eprintln!("Error deserializing client message: {:?}", e);
+                eprintln!("Unable to deserialize client message: {:?}", e);
                 break;
             }
         }
