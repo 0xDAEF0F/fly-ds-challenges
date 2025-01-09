@@ -72,6 +72,6 @@ pub mod server {
 
     #[derive(Debug, Serialize)]
     pub struct Generate {
-        pub id: u32,
+        pub id: String,
     }
 }
