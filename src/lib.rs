@@ -6,6 +6,7 @@ pub mod client {
 
     #[derive(Debug, Deserialize)]
     pub struct ClientMessage {
+        pub id: u32,
         pub src: String,
         pub dest: String,
         pub body: ClientBody,

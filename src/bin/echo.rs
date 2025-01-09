@@ -25,6 +25,16 @@ async fn main() -> Result<()> {
                         continue;
                     }
                     node_id = Some(init.node_id);
+                    let server_msg = server::ServerMessage {
+                        src: node_id.clone().unwrap(),
+                        dest: client_msg.src,
+                        body: server::ServerBody::Init(server::Init {
+                            r#type: "init_ok".to_string(),
+                            in_reply_to: init.msg_id,
+                        }),
+                    };
+                    let server_msg_str = serde_json::to_string(&server_msg)?;
+                    println!("{}", server_msg_str);
                 }
                 client::ClientBody::Echo(echo) => {
                     if node_id.is_none() {
