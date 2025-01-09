@@ -36,7 +36,13 @@ async fn main() -> Result<()> {
                 }
                 client::ClientBody::Echo(_) => {}
                 client::ClientBody::Generate(generate) => {
-                    let unique_id = format!("{}:{}", node_id.clone().unwrap(), generate.msg_id);
+                    let unique_id = format!(
+                        "{}-{}-{}",
+                        chrono::Utc::now().timestamp_millis(),
+                        node_id.clone().unwrap(),
+                        generate.msg_id
+                    );
+
                     let body = server::ServerBody::GenerateOk(server::Generate { id: unique_id });
                     let server_msg = server::ServerMessage {
                         src: node_id.clone().unwrap(),
