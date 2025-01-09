@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     eprintln!("Awaiting messages");
 
     while let Some(line) = lines.next_line().await? {
-        eprintln!("Message received. Deserializing...");
+        eprintln!("Message received: {}. Deserializing", line);
         match serde_json::from_str::<ClientMessage>(&line) {
             Ok(client_msg) => match client_msg {
                 ClientMessage::Init(init) => {
@@ -78,7 +78,6 @@ async fn main() -> Result<()> {
                             }
                             Err(e) => {
                                 eprintln!("Error serializing echo message: {:?}", e);
-                                eprintln!("msg: {:?}", line);
                                 break;
                             }
                         }
