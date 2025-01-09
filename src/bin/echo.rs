@@ -28,8 +28,7 @@ async fn main() -> Result<()> {
                     let server_msg = server::ServerMessage {
                         src: node_id.clone().unwrap(),
                         dest: client_msg.src,
-                        body: server::ServerBody::Init(server::Init {
-                            r#type: "init_ok".to_string(),
+                        body: server::ServerBody::InitOk(server::Init {
                             in_reply_to: init.msg_id,
                         }),
                     };
@@ -44,8 +43,7 @@ async fn main() -> Result<()> {
                     let server_msg = server::ServerMessage {
                         src: node_id.clone().unwrap(),
                         dest: client_msg.src,
-                        body: server::ServerBody::Echo(server::Echo {
-                            r#type: "echo_ok".to_string(),
+                        body: server::ServerBody::EchoOk(server::Echo {
                             in_reply_to: echo.msg_id,
                             msg_id,
                             echo: echo.echo,
@@ -54,6 +52,10 @@ async fn main() -> Result<()> {
                     let server_msg_str = serde_json::to_string(&server_msg)?;
                     println!("{}", server_msg_str);
                     msg_id += 1;
+                }
+                client::ClientBody::Generate(_) => {
+                    eprintln!("Unreachable, Generate");
+                    break;
                 }
             },
             Err(e) => {
