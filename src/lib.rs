@@ -39,7 +39,6 @@ pub mod client {
 
     #[derive(Debug, Deserialize)]
     pub struct Echo {
-        pub r#type: String,
         pub msg_id: u32,
         pub echo: String,
     }
