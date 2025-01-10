@@ -45,9 +45,26 @@ impl ClientMessage {
                     in_reply_to: generate.msg_id,
                 })
             }
-            ClientBody::Broadcast(broadcast) => todo!(),
-            ClientBody::Read(read) => todo!(),
-            ClientBody::Topology(topology) => todo!(),
+            ClientBody::Broadcast(broadcast) => {
+                server_state.messages.insert(broadcast.message);
+                ServerBody::BroadcastOk(server::Broadcast {
+                    in_reply_to: broadcast.msg_id,
+                })
+            }
+            ClientBody::Read(read) => ServerBody::ReadOk(server::Read {
+                in_reply_to: read.msg_id,
+                messages: server_state.messages.iter().cloned().collect(),
+            }),
+            ClientBody::Topology(mut topology) => {
+                let node_id = server_state.node_id.as_ref().unwrap();
+                if let Some(neighbors) = topology.topology.remove(node_id) {
+                    server_state.neighbors = neighbors;
+                }
+
+                ServerBody::TopologyOk(server::Topology {
+                    in_reply_to: topology.msg_id,
+                })
+            }
         };
 
         ServerMessage {
