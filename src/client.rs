@@ -152,6 +152,5 @@ pub struct Topology {
 
 #[derive(Debug, Deserialize)]
 pub struct Whisper {
-    pub msg_id: u32,
     pub message: u32,
 }
