@@ -126,7 +126,7 @@ impl ClientMessage {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientBody {
     Init(Init),
     Echo(Echo),
