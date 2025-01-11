@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Default)]
 pub struct ServerState {
@@ -8,6 +8,25 @@ pub struct ServerState {
     pub messages: HashSet<u32>,
     pub neighbors: Vec<String>,
     pub node_ids: Vec<String>,
+    pub unack_neigh_msgs: HashMap<String, HashSet<u32>>,
+}
+
+impl ServerState {
+    pub fn resend_unack(&self) {
+        self.unack_neigh_msgs.iter().for_each(|(n, msgs)| {
+            msgs.iter().for_each(|m| {
+                println!(
+                    "{}",
+                    serde_json::to_string(&ServerMessage {
+                        src: self.node_id.as_ref().unwrap().clone(),
+                        dest: n.clone(),
+                        body: ServerBody::Whisper(Whisper { message: *m }),
+                    })
+                    .unwrap()
+                );
+            });
+        });
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -26,6 +45,7 @@ pub enum ServerBody {
     BroadcastOk(Broadcast),
     ReadOk(Read),
     TopologyOk(Topology),
+    WhisperOk(Whisper),
     Whisper(Whisper),
 }
 

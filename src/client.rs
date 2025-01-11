@@ -1,6 +1,6 @@
 use crate::server::{self, ServerBody, ServerMessage, ServerState};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Deserialize)]
 pub struct ClientMessage {
@@ -21,19 +21,20 @@ impl ClientMessage {
         }
 
         let whispers = if let ClientBody::Broadcast(broadcast) = &self.body {
-            Some(
+            Some(server_state.node_ids.iter().cloned().map(|n| {
                 server_state
-                    .node_ids
-                    .iter()
-                    .cloned()
-                    .map(|n| ServerMessage {
-                        dest: n,
-                        src: server_state.node_id.as_ref().unwrap().clone(),
-                        body: ServerBody::Whisper(server::Whisper {
-                            message: broadcast.message,
-                        }),
+                    .unack_neigh_msgs
+                    .entry(n.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(broadcast.message);
+                ServerMessage {
+                    dest: n,
+                    src: server_state.node_id.as_ref().unwrap().clone(),
+                    body: ServerBody::Whisper(server::Whisper {
+                        message: broadcast.message,
                     }),
-            )
+                }
+            }))
         } else {
             None
         };
@@ -76,10 +77,13 @@ impl ClientMessage {
                     in_reply_to: broadcast.msg_id,
                 }))
             }
-            ClientBody::Read(read) => Some(ServerBody::ReadOk(server::Read {
-                in_reply_to: read.msg_id,
-                messages: server_state.messages.iter().cloned().collect(),
-            })),
+            ClientBody::Read(read) => {
+                server_state.resend_unack();
+                Some(ServerBody::ReadOk(server::Read {
+                    in_reply_to: read.msg_id,
+                    messages: server_state.messages.iter().cloned().collect(),
+                }))
+            }
             ClientBody::Topology(mut topology) => {
                 let node_id = server_state.node_id.as_ref().unwrap();
                 if let Some(neighbors) = topology.topology.remove(node_id) {
@@ -92,6 +96,19 @@ impl ClientMessage {
             }
             ClientBody::Whisper(whisper) => {
                 server_state.messages.insert(whisper.message);
+
+                Some(ServerBody::WhisperOk(server::Whisper {
+                    message: whisper.message,
+                }))
+            }
+            ClientBody::WhisperOk(whisper) => {
+                server_state
+                    .unack_neigh_msgs
+                    .entry(self.src.clone())
+                    .and_modify(|msgs| {
+                        msgs.remove(&whisper.message);
+                    });
+
                 None
             }
         };
@@ -118,6 +135,7 @@ pub enum ClientBody {
     Read(Read),
     Topology(Topology),
     Whisper(Whisper),
+    WhisperOk(Whisper),
 }
 
 #[derive(Debug, Deserialize)]
