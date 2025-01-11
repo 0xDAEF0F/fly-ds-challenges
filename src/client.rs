@@ -23,7 +23,7 @@ impl ClientMessage {
         let whispers = if let ClientBody::Broadcast(broadcast) = &self.body {
             Some(
                 server_state
-                    .neighbors
+                    .node_ids
                     .iter()
                     .cloned()
                     .map(|n| ServerMessage {
@@ -41,6 +41,11 @@ impl ClientMessage {
 
         let body = match self.body {
             ClientBody::Init(init) => {
+                server_state.node_ids = init
+                    .node_ids
+                    .into_iter()
+                    .filter(|n| n != &init.node_id)
+                    .collect();
                 server_state.node_id = Some(init.node_id);
                 Some(ServerBody::InitOk(server::Init {
                     in_reply_to: init.msg_id,

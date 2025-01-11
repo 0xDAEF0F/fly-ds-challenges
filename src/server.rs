@@ -7,6 +7,7 @@ pub struct ServerState {
     pub msg_id: u32,
     pub messages: HashSet<u32>,
     pub neighbors: Vec<String>,
+    pub node_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
