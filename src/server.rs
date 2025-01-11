@@ -25,6 +25,7 @@ pub enum ServerBody {
     BroadcastOk(Broadcast),
     ReadOk(Read),
     TopologyOk(Topology),
+    Whisper(Whisper),
 }
 
 #[derive(Debug, Serialize)]
@@ -59,4 +60,9 @@ pub struct Read {
 #[derive(Debug, Serialize)]
 pub struct Topology {
     pub in_reply_to: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Whisper {
+    pub message: u32,
 }
