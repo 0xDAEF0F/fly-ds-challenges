@@ -1,3 +1,5 @@
+#![feature(hash_set_drain_filter)]
+
 use crate::server::{self, ServerBody, ServerMessage, ServerState};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -31,7 +33,7 @@ impl ClientMessage {
                     dest: n,
                     src: server_state.node_id.as_ref().unwrap().clone(),
                     body: ServerBody::Whisper(server::Whisper {
-                        message: broadcast.message,
+                        messages: vec![broadcast.message],
                     }),
                 }
             }))
@@ -95,10 +97,12 @@ impl ClientMessage {
                 }))
             }
             ClientBody::Whisper(whisper) => {
-                server_state.messages.insert(whisper.message);
+                for &msg in &whisper.messages {
+                    server_state.messages.insert(msg);
+                }
 
                 Some(ServerBody::WhisperOk(server::Whisper {
-                    message: whisper.message,
+                    messages: whisper.messages,
                 }))
             }
             ClientBody::WhisperOk(whisper) => {
@@ -106,7 +110,9 @@ impl ClientMessage {
                     .unack_neigh_msgs
                     .entry(self.src.clone())
                     .and_modify(|msgs| {
-                        msgs.remove(&whisper.message);
+                        for msg in &whisper.messages {
+                            msgs.remove(msg);
+                        }
                     });
 
                 None
@@ -175,5 +181,5 @@ pub struct Topology {
 
 #[derive(Debug, Deserialize)]
 pub struct Whisper {
-    pub message: u32,
+    pub messages: Vec<u32>,
 }

@@ -14,17 +14,19 @@ pub struct ServerState {
 impl ServerState {
     pub fn resend_unack(&self) {
         self.unack_neigh_msgs.iter().for_each(|(n, msgs)| {
-            msgs.iter().for_each(|m| {
-                println!(
-                    "{}",
-                    serde_json::to_string(&ServerMessage {
-                        src: self.node_id.as_ref().unwrap().clone(),
-                        dest: n.clone(),
-                        body: ServerBody::Whisper(Whisper { message: *m }),
-                    })
-                    .unwrap()
-                );
-            });
+            if msgs.is_empty() {
+                return;
+            }
+            let msgs = msgs.iter().cloned().collect();
+            println!(
+                "{}",
+                serde_json::to_string(&ServerMessage {
+                    src: self.node_id.as_ref().unwrap().clone(),
+                    dest: n.clone(),
+                    body: ServerBody::Whisper(Whisper { messages: msgs }),
+                })
+                .unwrap()
+            );
         });
     }
 }
@@ -85,5 +87,5 @@ pub struct Topology {
 
 #[derive(Debug, Serialize)]
 pub struct Whisper {
-    pub message: u32,
+    pub messages: Vec<u32>,
 }
