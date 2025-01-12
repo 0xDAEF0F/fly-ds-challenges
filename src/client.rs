@@ -1,4 +1,4 @@
-use crate::server::{self, ServerBody, ServerMessage, ServerState};
+use crate::server::{self, ServerState, ServerToClientBody, ServerToClientMsg};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 
@@ -11,34 +11,11 @@ pub struct ClientMessage {
 }
 
 impl ClientMessage {
-    pub fn handle_client_message(
-        self,
-        server_state: &mut ServerState,
-    ) -> impl Iterator<Item = ServerMessage> {
+    pub fn process_client_message(self, server_state: &mut ServerState) -> ServerToClientMsg {
         if !matches!(self.body, ClientBody::Init(_)) && server_state.node_id.is_none() {
             eprintln!("node id not initialized. exiting program.");
             std::process::exit(1);
         }
-
-        let whispers = if let ClientBody::Broadcast(broadcast) = &self.body {
-            Some(server_state.node_ids.iter().cloned().map(|n| {
-                server_state
-                    .unack_neigh_msgs
-                    .entry(n.clone())
-                    .or_insert_with(HashSet::new)
-                    .insert(broadcast.message);
-                ServerMessage {
-                    dest: n,
-                    src: server_state.node_id.as_ref().unwrap().clone(),
-                    body: ServerBody::Whisper(server::Whisper {
-                        messages: vec![broadcast.message],
-                    }),
-                }
-            }))
-        } else {
-            None
-        };
-        let whispers: Vec<_> = whispers.into_iter().flatten().collect();
 
         let body = match self.body {
             ClientBody::Init(init) => {
@@ -48,17 +25,19 @@ impl ClientMessage {
                     .filter(|n| n != &init.node_id)
                     .collect();
                 server_state.node_id = Some(init.node_id);
-                Some(ServerBody::InitOk(server::Init {
+
+                ServerToClientBody::InitOk(server::Init {
                     in_reply_to: init.msg_id,
-                }))
+                })
             }
             ClientBody::Echo(echo) => {
                 server_state.msg_id += 1;
-                Some(ServerBody::EchoOk(server::Echo {
+
+                ServerToClientBody::EchoOk(server::Echo {
                     in_reply_to: echo.msg_id,
                     msg_id: server_state.msg_id,
                     echo: echo.echo,
-                }))
+                })
             }
             ClientBody::Generate(generate) => {
                 let unique_id = format!(
@@ -66,23 +45,33 @@ impl ClientMessage {
                     server_state.node_id.clone().unwrap(),
                     generate.msg_id
                 );
-                Some(ServerBody::GenerateOk(server::Generate {
+
+                ServerToClientBody::GenerateOk(server::Generate {
                     id: unique_id,
                     in_reply_to: generate.msg_id,
-                }))
+                })
             }
             ClientBody::Broadcast(broadcast) => {
                 server_state.messages.insert(broadcast.message);
-                Some(ServerBody::BroadcastOk(server::Broadcast {
+                for node in &server_state.node_ids {
+                    server_state
+                        .unack_neigh_msgs
+                        .entry(node.clone())
+                        .or_insert_with(HashSet::new)
+                        .insert(broadcast.message);
+                }
+
+                ServerToClientBody::BroadcastOk(server::Broadcast {
                     in_reply_to: broadcast.msg_id,
-                }))
+                })
             }
             ClientBody::Read(read) => {
-                server_state.resend_unack();
-                Some(ServerBody::ReadOk(server::Read {
+                server_state.send_unack();
+
+                ServerToClientBody::ReadOk(server::Read {
                     in_reply_to: read.msg_id,
                     messages: server_state.messages.iter().cloned().collect(),
-                }))
+                })
             }
             ClientBody::Topology(mut topology) => {
                 let node_id = server_state.node_id.as_ref().unwrap();
@@ -90,42 +79,17 @@ impl ClientMessage {
                     server_state.neighbors = neighbors;
                 }
 
-                Some(ServerBody::TopologyOk(server::Topology {
+                ServerToClientBody::TopologyOk(server::Topology {
                     in_reply_to: topology.msg_id,
-                }))
-            }
-            ClientBody::Whisper(whisper) => {
-                for &msg in &whisper.messages {
-                    server_state.messages.insert(msg);
-                }
-
-                Some(ServerBody::WhisperOk(server::Whisper {
-                    messages: whisper.messages,
-                }))
-            }
-            ClientBody::WhisperOk(whisper) => {
-                server_state
-                    .unack_neigh_msgs
-                    .entry(self.src.clone())
-                    .and_modify(|msgs| {
-                        for msg in &whisper.messages {
-                            msgs.remove(msg);
-                        }
-                    });
-
-                None
+                })
             }
         };
 
-        let server_message = body.map(|b| ServerMessage {
+        ServerToClientMsg {
             src: self.dest,
             dest: self.src,
-            body: b,
-        });
-
-        whispers
-            .into_iter()
-            .chain(std::iter::once(server_message).filter_map(|x| x))
+            body,
+        }
     }
 }
 
@@ -138,8 +102,6 @@ pub enum ClientBody {
     Broadcast(Broadcast),
     Read(Read),
     Topology(Topology),
-    Whisper(Whisper),
-    WhisperOk(Whisper),
 }
 
 #[derive(Debug, Deserialize)]
@@ -175,9 +137,4 @@ pub struct Read {
 pub struct Topology {
     pub msg_id: u32,
     pub topology: HashMap<String, Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Whisper {
-    pub messages: Vec<u32>,
 }
