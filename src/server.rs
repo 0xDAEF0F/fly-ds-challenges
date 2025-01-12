@@ -17,13 +17,14 @@ impl ServerState {
             if msgs.is_empty() {
                 return;
             }
-            let msgs = msgs.iter().cloned().collect();
             println!(
                 "{}",
                 serde_json::to_string(&ServerMessage {
                     src: self.node_id.as_ref().unwrap().clone(),
                     dest: n.clone(),
-                    body: ServerBody::Whisper(Whisper { messages: msgs }),
+                    body: ServerBody::Whisper(Whisper {
+                        messages: msgs.iter().cloned().collect()
+                    }),
                 })
                 .unwrap()
             );

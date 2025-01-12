@@ -1,5 +1,3 @@
-#![feature(hash_set_drain_filter)]
-
 use crate::server::{self, ServerBody, ServerMessage, ServerState};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
