@@ -50,7 +50,7 @@ fn resend_unack_task(server_state: Arc<Mutex<ServerState>>) {
                 let server_state = server_state.lock().await;
                 server_state.send_unack();
             }
-            sleep(Duration::from_secs(5)).await;
+            sleep(Duration::from_millis(1_900)).await;
         }
     });
 }
