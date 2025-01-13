@@ -41,7 +41,6 @@ impl ClientMessage {
                 })
             }
             ClientBody::Generate(generate) => {
-                let ss = server_state.node_id.unwrap();
                 let unique_id = format!(
                     "{}_{}",
                     server_state.node_id.unwrap().to_string(),
