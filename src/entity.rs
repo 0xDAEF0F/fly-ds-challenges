@@ -4,7 +4,7 @@ use serde::{
 };
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Node(usize);
 
 impl Serialize for Node {
@@ -14,6 +14,12 @@ impl Serialize for Node {
     {
         let formatted = format!("n{}", self.0);
         serializer.serialize_str(&formatted)
+    }
+}
+
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "n{}", self.0)
     }
 }
 

@@ -1,14 +1,15 @@
+use crate::entity::{Client, Node};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Default)]
 pub struct ServerState {
-    pub node_id: Option<String>,
+    pub node_id: Option<Node>,
     pub msg_id: u32,
     pub messages: HashSet<u32>,
-    pub neighbors: Vec<String>,
-    pub node_ids: Vec<String>,
-    pub unack_neigh_msgs: HashMap<String, HashSet<u32>>,
+    pub neighbors: Vec<Node>,
+    pub node_ids: Vec<Node>,
+    pub unack_neigh_msgs: HashMap<Node, HashSet<u32>>,
 }
 
 impl ServerState {
@@ -20,7 +21,7 @@ impl ServerState {
             println!(
                 "{}",
                 serde_json::to_string(&InterNodeMsg {
-                    src: self.node_id.as_ref().unwrap().clone(),
+                    src: self.node_id.unwrap(),
                     dest: n.clone(),
                     body: InterNodeBody::Whisper(Whisper {
                         messages: msgs.iter().cloned().collect()
@@ -34,8 +35,8 @@ impl ServerState {
 
 #[derive(Debug, Serialize)]
 pub struct ServerToClientMsg {
-    pub src: String,
-    pub dest: String,
+    pub src: Node,
+    pub dest: Client,
     pub body: ServerToClientBody,
 }
 
@@ -48,8 +49,8 @@ impl ServerToClientMsg {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InterNodeMsg {
-    pub src: String,
-    pub dest: String,
+    pub src: Node,
+    pub dest: Node,
     pub body: InterNodeBody,
 }
 

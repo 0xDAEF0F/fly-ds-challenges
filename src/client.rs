@@ -1,3 +1,4 @@
+use crate::entity::{Client, Node};
 use crate::server::{self, ServerState, ServerToClientBody, ServerToClientMsg};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -5,8 +6,8 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, Deserialize)]
 pub struct ClientMessage {
     pub id: u32,
-    pub src: String,
-    pub dest: String,
+    pub src: Client,
+    pub dest: Node,
     pub body: ClientBody,
 }
 
@@ -40,9 +41,10 @@ impl ClientMessage {
                 })
             }
             ClientBody::Generate(generate) => {
+                let ss = server_state.node_id.unwrap();
                 let unique_id = format!(
                     "{}_{}",
-                    server_state.node_id.clone().unwrap(),
+                    server_state.node_id.unwrap().to_string(),
                     generate.msg_id
                 );
 
@@ -107,8 +109,8 @@ pub enum ClientBody {
 #[derive(Debug, Deserialize)]
 pub struct Init {
     pub msg_id: u32,
-    pub node_id: String,
-    pub node_ids: Vec<String>,
+    pub node_id: Node,
+    pub node_ids: Vec<Node>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -136,5 +138,5 @@ pub struct Read {
 #[derive(Debug, Deserialize)]
 pub struct Topology {
     pub msg_id: u32,
-    pub topology: HashMap<String, Vec<String>>,
+    pub topology: HashMap<Node, Vec<Node>>,
 }
