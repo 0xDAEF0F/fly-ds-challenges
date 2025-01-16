@@ -115,6 +115,19 @@ impl ServiceMsg {
                                 },
                             };
                             _ = tx.send(Msg::Service(msg));
+                        } else {
+                            server_state.msg_id += 1;
+                            let msg = ServiceMsg {
+                                id: None,
+                                src: server_state.node_id.clone().unwrap(),
+                                dest: "seq-kv".to_string(),
+                                body: ServicePayload::Write {
+                                    msg_id: server_state.msg_id,
+                                    key: "counter".to_string(),
+                                    value: 0,
+                                },
+                            };
+                            _ = tx.send(Msg::Service(msg));
                         }
                     }
                     21 => {
