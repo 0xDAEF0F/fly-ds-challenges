@@ -1,10 +1,22 @@
-use tokio::io::{AsyncBufReadExt, BufReader, Lines, Stdin, stdin};
-
 pub mod client;
-pub mod entity;
-pub mod server;
+pub mod service;
 
-pub fn get_stdin_lines() -> Lines<BufReader<Stdin>> {
-    let reader = BufReader::new(stdin());
-    reader.lines()
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Msg {
+    Client(client::ClientMessage),
+    Service(service::ServiceMsg),
+}
+
+#[derive(Debug, Default)]
+pub struct ServerState {
+    pub node_id: Option<String>,
+    // monotonically increasing for each node
+    pub msg_id: u32,
+    // grow-only counter challenge
+    pub last_seen_counter: u32,
+    pub uncommited_deltas: HashMap<u32, u32>, // msg_id => delta
 }

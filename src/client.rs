@@ -1,141 +1,141 @@
-use crate::entity::{Client, Node};
-use crate::server::{self, ServerState, ServerToClientBody, ServerToClientMsg};
-use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use crate::{
+    Msg, ServerState,
+    service::{ServiceMsg, ServicePayload},
+};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use tokio::sync::mpsc::UnboundedSender;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClientMessage {
-    pub id: u32,
-    pub src: Client,
-    pub dest: Node,
-    pub body: ClientBody,
+    pub id: Option<u32>,
+    pub src: String,
+    pub dest: String,
+    pub body: ClientPayload,
 }
 
 impl ClientMessage {
-    pub fn process_client_message(self, server_state: &mut ServerState) -> ServerToClientMsg {
-        if !matches!(self.body, ClientBody::Init(_)) && server_state.node_id.is_none() {
-            eprintln!("node id not initialized. exiting program.");
-            std::process::exit(1);
-        }
-
-        let body = match self.body {
-            ClientBody::Init(init) => {
-                server_state.node_ids = init
-                    .node_ids
-                    .into_iter()
-                    .filter(|n| n != &init.node_id)
-                    .collect();
-                server_state.node_id = Some(init.node_id);
-
-                ServerToClientBody::InitOk(server::Init {
-                    in_reply_to: init.msg_id,
-                })
+    pub fn process(self, server_state: &mut ServerState, tx: UnboundedSender<Msg>) {
+        match self.body {
+            ClientPayload::Init {
+                node_id, msg_id, ..
+            } => {
+                server_state.node_id = Some(node_id.clone());
+                let msg = ClientMessage {
+                    id: None,
+                    src: node_id,
+                    dest: self.src,
+                    body: ClientPayload::InitOk {
+                        in_reply_to: msg_id,
+                    },
+                };
+                _ = tx.send(Msg::Client(msg));
             }
-            ClientBody::Echo(echo) => {
+            ClientPayload::Topology { msg_id, .. } => {
+                let msg = ClientMessage {
+                    id: None,
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: self.src,
+                    body: ClientPayload::TopologyOk {
+                        in_reply_to: msg_id,
+                    },
+                };
+                _ = tx.send(Msg::Client(msg));
+            }
+            ClientPayload::Read { msg_id } => {
+                let msg = ClientMessage {
+                    id: None,
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: self.src,
+                    body: ClientPayload::ReadOk {
+                        in_reply_to: msg_id,
+                        value: server_state.last_seen_counter
+                            + server_state.uncommited_deltas.values().sum::<u32>(),
+                    },
+                };
+                _ = tx.send(Msg::Client(msg));
+
+                let msg = ServiceMsg {
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: "seq_kv".to_string(),
+                    body: ServicePayload::Read {
+                        msg_id: server_state.msg_id,
+                        key: "counter".to_string(),
+                    },
+                };
+                _ = tx.send(Msg::Service(msg));
+            }
+            ClientPayload::Add { delta, msg_id } => {
+                let msg = ClientMessage {
+                    id: None,
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: self.src,
+                    body: ClientPayload::AddOk {
+                        in_reply_to: msg_id,
+                    },
+                };
+                _ = tx.send(Msg::Client(msg));
+
                 server_state.msg_id += 1;
+                let msg_id = server_state.msg_id;
+                server_state.uncommited_deltas.insert(msg_id, delta);
 
-                ServerToClientBody::EchoOk(server::Echo {
-                    in_reply_to: echo.msg_id,
-                    msg_id: server_state.msg_id,
-                    echo: echo.echo,
-                })
+                let service_payload = if server_state.last_seen_counter == 0 {
+                    ServicePayload::Write {
+                        msg_id,
+                        key: "counter".to_string(),
+                        value: delta,
+                    }
+                } else {
+                    ServicePayload::Cas {
+                        msg_id,
+                        key: "counter".to_string(),
+                        from: server_state.last_seen_counter,
+                        to: server_state.last_seen_counter + delta,
+                    }
+                };
+                let msg = ServiceMsg {
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: "seq_kv".to_string(),
+                    body: service_payload,
+                };
+                _ = tx.send(Msg::Service(msg));
             }
-            ClientBody::Generate(generate) => {
-                let unique_id = format!(
-                    "{}_{}",
-                    server_state.node_id.unwrap().to_string(),
-                    generate.msg_id
-                );
-
-                ServerToClientBody::GenerateOk(server::Generate {
-                    id: unique_id,
-                    in_reply_to: generate.msg_id,
-                })
-            }
-            ClientBody::Broadcast(broadcast) => {
-                server_state.messages.insert(broadcast.message);
-                for node in &server_state.node_ids {
-                    server_state
-                        .unack_neigh_msgs
-                        .entry(node.clone())
-                        .or_insert_with(HashSet::new)
-                        .insert(broadcast.message);
-                }
-
-                ServerToClientBody::BroadcastOk(server::Broadcast {
-                    in_reply_to: broadcast.msg_id,
-                })
-            }
-            ClientBody::Read(read) => {
-                server_state.send_unack();
-
-                ServerToClientBody::ReadOk(server::Read {
-                    in_reply_to: read.msg_id,
-                    messages: server_state.messages.iter().cloned().collect(),
-                })
-            }
-            ClientBody::Topology(mut topology) => {
-                let node_id = server_state.node_id.as_ref().unwrap();
-                if let Some(neighbors) = topology.topology.remove(node_id) {
-                    server_state.neighbors = neighbors;
-                }
-
-                ServerToClientBody::TopologyOk(server::Topology {
-                    in_reply_to: topology.msg_id,
-                })
-            }
+            _ => {}
         };
-
-        ServerToClientMsg {
-            src: self.dest,
-            dest: self.src,
-            body,
-        }
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum ClientBody {
-    Init(Init),
-    Echo(Echo),
-    Generate(Generate),
-    Broadcast(Broadcast),
-    Read(Read),
-    Topology(Topology),
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Init {
-    pub msg_id: u32,
-    pub node_id: Node,
-    pub node_ids: Vec<Node>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Echo {
-    pub msg_id: u32,
-    pub echo: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Generate {
-    pub msg_id: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Broadcast {
-    pub msg_id: u32,
-    pub message: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Read {
-    pub msg_id: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Topology {
-    pub msg_id: u32,
-    pub topology: HashMap<Node, Vec<Node>>,
+pub enum ClientPayload {
+    Init {
+        msg_id: u32,
+        node_id: String,
+        node_ids: Vec<String>,
+    },
+    InitOk {
+        in_reply_to: u32,
+    },
+    Topology {
+        msg_id: u32,
+        topology: HashMap<String, Vec<String>>,
+    },
+    TopologyOk {
+        in_reply_to: u32,
+    },
+    Read {
+        msg_id: u32,
+    },
+    ReadOk {
+        in_reply_to: u32,
+        value: u32,
+    },
+    Add {
+        msg_id: u32,
+        delta: u32,
+    },
+    AddOk {
+        in_reply_to: u32,
+    },
 }
