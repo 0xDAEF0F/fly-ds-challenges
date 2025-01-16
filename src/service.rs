@@ -64,6 +64,9 @@ impl ServiceMsg {
                         .map(|(_, d)| d)
                         .sum::<u32>();
                     server_state.msg_id += 1;
+                    server_state
+                        .uncommited_deltas
+                        .insert(server_state.msg_id, acc_deltas);
                     let msg = ServiceMsg {
                         id: None,
                         src: server_state.node_id.clone().unwrap(),
@@ -98,6 +101,9 @@ impl ServiceMsg {
                                 .map(|(_, d)| d)
                                 .sum::<u32>();
                             server_state.msg_id += 1;
+                            server_state
+                                .uncommited_deltas
+                                .insert(server_state.msg_id, acc_deltas);
                             let msg = ServiceMsg {
                                 id: None,
                                 src: server_state.node_id.clone().unwrap(),
