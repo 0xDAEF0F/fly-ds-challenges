@@ -4,6 +4,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServiceMsg {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<u32>,
     pub src: String,
     pub dest: String,
