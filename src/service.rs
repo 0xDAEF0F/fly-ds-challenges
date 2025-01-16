@@ -90,7 +90,7 @@ impl ServiceMsg {
                 match code {
                     20 => {
                         // key-does-not-exist
-                        panic!("`key-does-not-exist` error");
+                        eprintln!("`key-does-not-exist` error");
                     }
                     21 => {
                         // key-already-exists
