@@ -91,6 +91,25 @@ impl ServiceMsg {
                     20 => {
                         // key-does-not-exist
                         eprintln!("`key-does-not-exist` error");
+                        if !server_state.uncommited_deltas.is_empty() {
+                            let acc_deltas = server_state
+                                .uncommited_deltas
+                                .drain()
+                                .map(|(_, d)| d)
+                                .sum::<u32>();
+                            server_state.msg_id += 1;
+                            let msg = ServiceMsg {
+                                id: None,
+                                src: server_state.node_id.clone().unwrap(),
+                                dest: "seq-kv".to_string(),
+                                body: ServicePayload::Write {
+                                    msg_id: server_state.msg_id,
+                                    key: "counter".to_string(),
+                                    value: server_state.last_seen_counter + acc_deltas,
+                                },
+                            };
+                            _ = tx.send(Msg::Service(msg));
+                        }
                     }
                     21 => {
                         // key-already-exists

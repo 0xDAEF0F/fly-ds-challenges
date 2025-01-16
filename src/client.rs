@@ -83,25 +83,14 @@ impl ClientMessage {
                 let msg_id = server_state.msg_id;
                 server_state.uncommited_deltas.insert(msg_id, delta);
 
-                let service_payload = if server_state.last_seen_counter == 0 {
-                    ServicePayload::Write {
-                        msg_id,
-                        key: "counter".to_string(),
-                        value: delta,
-                    }
-                } else {
-                    ServicePayload::Cas {
-                        msg_id,
-                        key: "counter".to_string(),
-                        from: server_state.last_seen_counter,
-                        to: server_state.last_seen_counter + delta,
-                    }
-                };
                 let msg = ServiceMsg {
                     id: None,
                     src: server_state.node_id.clone().unwrap(),
                     dest: "seq-kv".to_string(),
-                    body: service_payload,
+                    body: ServicePayload::Read {
+                        msg_id,
+                        key: "counter".to_string(),
+                    },
                 };
                 _ = tx.send(Msg::Service(msg));
             }
