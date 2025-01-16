@@ -59,7 +59,7 @@ impl ClientMessage {
                 server_state.msg_id += 1;
                 let msg = ServiceMsg {
                     src: server_state.node_id.clone().unwrap(),
-                    dest: "seq_kv".to_string(),
+                    dest: "seq-kv".to_string(),
                     body: ServicePayload::Read {
                         msg_id: server_state.msg_id,
                         key: "counter".to_string(),
@@ -98,7 +98,7 @@ impl ClientMessage {
                 };
                 let msg = ServiceMsg {
                     src: server_state.node_id.clone().unwrap(),
-                    dest: "seq_kv".to_string(),
+                    dest: "seq-kv".to_string(),
                     body: service_payload,
                 };
                 _ = tx.send(Msg::Service(msg));
