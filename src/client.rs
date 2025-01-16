@@ -56,6 +56,7 @@ impl ClientMessage {
                 };
                 _ = tx.send(Msg::Client(msg));
 
+                server_state.msg_id += 1;
                 let msg = ServiceMsg {
                     src: server_state.node_id.clone().unwrap(),
                     dest: "seq_kv".to_string(),
