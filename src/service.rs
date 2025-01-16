@@ -19,7 +19,6 @@ pub enum ServicePayload {
         key: String,
     },
     ReadOk {
-        msg_id: u32,
         value: u32,
         in_reply_to: u32,
     },
@@ -38,7 +37,6 @@ pub enum ServicePayload {
         to: u32,
     },
     CasOk {
-        msg_id: u32,
         in_reply_to: u32,
     },
     Error {
