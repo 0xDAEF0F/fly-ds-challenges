@@ -29,7 +29,6 @@ pub enum ServicePayload {
         value: u32,
     },
     WriteOk {
-        msg_id: u32,
         in_reply_to: u32,
     },
     Cas {
