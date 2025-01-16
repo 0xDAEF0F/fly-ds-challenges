@@ -58,6 +58,7 @@ impl ServiceMsg {
 
                 // retry uncommited deltas
                 if !server_state.uncommited_deltas.is_empty() {
+                    eprintln!("Retrying uncommited deltas");
                     let acc_deltas = server_state
                         .uncommited_deltas
                         .drain()
@@ -86,7 +87,7 @@ impl ServiceMsg {
                 if let Some(delta) = server_state.uncommited_deltas.remove(&in_reply_to) {
                     server_state.last_seen_counter += delta;
                 } else {
-                    panic!("`WriteOk` or `CasOk` not found in uncommited_deltas");
+                    eprintln!("`WriteOk` or `CasOk` not found in uncommited_deltas");
                 }
             }
             ServicePayload::Error { code, .. } => {
