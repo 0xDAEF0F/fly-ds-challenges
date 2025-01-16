@@ -20,7 +20,9 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         eprintln!("Starting stdout task");
         while let Some(msg) = rx.recv().await {
-            println!("{}", serde_json::to_string(&msg).unwrap());
+            let serialized = serde_json::to_string(&msg).unwrap();
+            eprintln!("Sending message: {}", serialized);
+            println!("{}", serialized);
         }
     });
 
