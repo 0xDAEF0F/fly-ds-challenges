@@ -117,6 +117,9 @@ impl ServiceMsg {
                             _ = tx.send(Msg::Service(msg));
                         } else {
                             server_state.msg_id += 1;
+                            server_state
+                                .uncommited_deltas
+                                .insert(server_state.msg_id, 0);
                             let msg = ServiceMsg {
                                 id: None,
                                 src: server_state.node_id.clone().unwrap(),
