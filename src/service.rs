@@ -4,6 +4,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServiceMsg {
+    pub id: Option<u32>,
     pub src: String,
     pub dest: String,
     pub body: ServicePayload,
@@ -66,6 +67,7 @@ impl ServiceMsg {
                         .sum::<u32>();
                     server_state.msg_id += 1;
                     let msg = ServiceMsg {
+                        id: None,
                         src: server_state.node_id.clone().unwrap(),
                         dest: "seq-kv".to_string(),
                         body: ServicePayload::Cas {
@@ -100,6 +102,7 @@ impl ServiceMsg {
                         // precondition-failed (from value doesn't match)
                         server_state.msg_id += 1;
                         let msg = ServiceMsg {
+                            id: None,
                             src: server_state.node_id.clone().unwrap(),
                             dest: "seq-kv".to_string(),
                             body: ServicePayload::Read {

@@ -58,6 +58,7 @@ impl ClientMessage {
 
                 server_state.msg_id += 1;
                 let msg = ServiceMsg {
+                    id: None,
                     src: server_state.node_id.clone().unwrap(),
                     dest: "seq-kv".to_string(),
                     body: ServicePayload::Read {
@@ -97,6 +98,7 @@ impl ClientMessage {
                     }
                 };
                 let msg = ServiceMsg {
+                    id: None,
                     src: server_state.node_id.clone().unwrap(),
                     dest: "seq-kv".to_string(),
                     body: service_payload,
