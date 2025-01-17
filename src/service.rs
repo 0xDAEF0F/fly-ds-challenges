@@ -79,14 +79,26 @@ impl ServiceMsg {
                         },
                     };
                     _ = tx.send(Msg::Service(msg));
+                } else {
+                    server_state.msg_id += 1;
+                    let msg = ServiceMsg {
+                        id: None,
+                        src: server_state.node_id.clone().unwrap(),
+                        dest: "seq-kv".to_string(),
+                        body: ServicePayload::Cas {
+                            msg_id: server_state.msg_id,
+                            key: "counter".to_string(),
+                            from: server_state.last_seen_counter,
+                            to: server_state.last_seen_counter,
+                        },
+                    };
+                    _ = tx.send(Msg::Service(msg));
                 }
             }
             ServicePayload::WriteOk { .. } => {}
             ServicePayload::CasOk { in_reply_to, .. } => {
                 if let Some(delta) = server_state.uncommited_deltas.remove(&in_reply_to) {
                     server_state.last_seen_counter += delta;
-                } else {
-                    eprintln!("`CasOk` not found in uncommited_deltas");
                 }
             }
             ServicePayload::Error { code, .. } => {
