@@ -79,11 +79,13 @@ impl ClientMessage {
                 };
                 _ = tx.send(Msg::Client(msg));
 
+                if delta == 0 {
+                    return;
+                }
+
                 server_state.msg_id += 1;
                 let msg_id = server_state.msg_id;
                 server_state.uncommited_deltas.insert(msg_id, delta);
-
-                eprintln!("Uncommited deltas: {:?}", server_state.uncommited_deltas);
 
                 let msg = ServiceMsg {
                     id: None,

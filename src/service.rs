@@ -50,8 +50,6 @@ impl ServiceMsg {
     pub fn process(self, server_state: &mut ServerState, tx: UnboundedSender<Msg>) {
         match self.body {
             ServicePayload::ReadOk { value, .. } => {
-                eprintln!("Uncommited deltas: {:?}", server_state.uncommited_deltas);
-
                 if value >= server_state.last_seen_counter {
                     server_state.last_seen_counter = value;
                 } else {
