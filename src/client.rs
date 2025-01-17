@@ -83,6 +83,8 @@ impl ClientMessage {
                 let msg_id = server_state.msg_id;
                 server_state.uncommited_deltas.insert(msg_id, delta);
 
+                eprintln!("Uncommited deltas: {:?}", server_state.uncommited_deltas);
+
                 let msg = ServiceMsg {
                     id: None,
                     src: server_state.node_id.clone().unwrap(),
