@@ -58,7 +58,6 @@ impl ServiceMsg {
 
                 // retry uncommited deltas
                 if !server_state.uncommited_deltas.is_empty() {
-                    eprintln!("Retrying uncommited deltas");
                     let acc_deltas = server_state
                         .uncommited_deltas
                         .drain()
@@ -82,61 +81,32 @@ impl ServiceMsg {
                     _ = tx.send(Msg::Service(msg));
                 }
             }
-            ServicePayload::WriteOk { in_reply_to, .. }
-            | ServicePayload::CasOk { in_reply_to, .. } => {
+            ServicePayload::WriteOk { .. } => {}
+            ServicePayload::CasOk { in_reply_to, .. } => {
                 if let Some(delta) = server_state.uncommited_deltas.remove(&in_reply_to) {
                     server_state.last_seen_counter += delta;
                 } else {
-                    eprintln!("`WriteOk` or `CasOk` not found in uncommited_deltas");
+                    eprintln!("`CasOk` not found in uncommited_deltas");
                 }
             }
             ServicePayload::Error { code, .. } => {
                 match code {
                     20 => {
-                        // key-does-not-exist
                         eprintln!("`key-does-not-exist` error");
-                        if !server_state.uncommited_deltas.is_empty() {
-                            let acc_deltas = server_state
-                                .uncommited_deltas
-                                .drain()
-                                .map(|(_, d)| d)
-                                .sum::<u32>();
-                            server_state.msg_id += 1;
-                            server_state
-                                .uncommited_deltas
-                                .insert(server_state.msg_id, acc_deltas);
-                            let msg = ServiceMsg {
-                                id: None,
-                                src: server_state.node_id.clone().unwrap(),
-                                dest: "seq-kv".to_string(),
-                                body: ServicePayload::Write {
-                                    msg_id: server_state.msg_id,
-                                    key: "counter".to_string(),
-                                    value: server_state.last_seen_counter + acc_deltas,
-                                },
-                            };
-                            _ = tx.send(Msg::Service(msg));
-                        } else {
-                            server_state.msg_id += 1;
-                            server_state
-                                .uncommited_deltas
-                                .insert(server_state.msg_id, 0);
-                            let msg = ServiceMsg {
-                                id: None,
-                                src: server_state.node_id.clone().unwrap(),
-                                dest: "seq-kv".to_string(),
-                                body: ServicePayload::Write {
-                                    msg_id: server_state.msg_id,
-                                    key: "counter".to_string(),
-                                    value: 0,
-                                },
-                            };
-                            _ = tx.send(Msg::Service(msg));
-                        }
+                        let msg = ServiceMsg {
+                            id: None,
+                            src: server_state.node_id.clone().unwrap(),
+                            dest: "seq-kv".to_string(),
+                            body: ServicePayload::Write {
+                                msg_id: server_state.msg_id,
+                                key: "counter".to_string(),
+                                value: 0,
+                            },
+                        };
+                        _ = tx.send(Msg::Service(msg));
                     }
                     21 => {
-                        // key-already-exists
-                        panic!("`key-already-exists` error");
+                        eprintln!("`key-already-exists` error");
                     }
                     22 => {
                         // precondition-failed (from value doesn't match)
