@@ -3,8 +3,8 @@ use crate::{
     service::{ServiceMsg, ServicePayload},
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
+use std::{collections::HashMap, time::Duration};
+use tokio::{sync::mpsc::UnboundedSender, time::sleep};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientMessage {
@@ -16,7 +16,7 @@ pub struct ClientMessage {
 }
 
 impl ClientMessage {
-    pub fn process(self, server_state: &mut ServerState, tx: UnboundedSender<Msg>) {
+    pub async fn process(self, server_state: &mut ServerState, tx: UnboundedSender<Msg>) {
         match self.body {
             ClientPayload::Init {
                 node_id, msg_id, ..
@@ -55,6 +55,8 @@ impl ClientMessage {
                     },
                 };
                 _ = tx.send(Msg::Service(msg));
+
+                sleep(Duration::from_millis(100)).await;
 
                 let msg = ClientMessage {
                     id: None,
