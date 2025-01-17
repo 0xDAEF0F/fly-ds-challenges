@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
         let mut server_state = server_state.lock().await;
         match msg {
             Msg::Client(client_msg) => {
-                client_msg.process(&mut server_state, tx.clone()).await;
+                client_msg.process(&mut server_state, tx.clone());
             }
             Msg::Service(service_msg) => {
                 service_msg.process(&mut server_state, tx.clone());
