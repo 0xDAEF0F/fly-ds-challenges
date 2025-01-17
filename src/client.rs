@@ -44,18 +44,6 @@ impl ClientMessage {
                 _ = tx.send(Msg::Client(msg));
             }
             ClientPayload::Read { msg_id } => {
-                let msg = ClientMessage {
-                    id: None,
-                    src: server_state.node_id.clone().unwrap(),
-                    dest: self.src,
-                    body: ClientPayload::ReadOk {
-                        in_reply_to: msg_id,
-                        value: server_state.last_seen_counter
-                            + server_state.uncommited_deltas.values().sum::<u32>(),
-                    },
-                };
-                _ = tx.send(Msg::Client(msg));
-
                 server_state.msg_id += 1;
                 let msg = ServiceMsg {
                     id: None,
@@ -67,6 +55,18 @@ impl ClientMessage {
                     },
                 };
                 _ = tx.send(Msg::Service(msg));
+
+                let msg = ClientMessage {
+                    id: None,
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: self.src,
+                    body: ClientPayload::ReadOk {
+                        in_reply_to: msg_id,
+                        value: server_state.last_seen_counter
+                            + server_state.uncommited_deltas.values().sum::<u32>(),
+                    },
+                };
+                _ = tx.send(Msg::Client(msg));
             }
             ClientPayload::Add { delta, msg_id } => {
                 let msg = ClientMessage {
