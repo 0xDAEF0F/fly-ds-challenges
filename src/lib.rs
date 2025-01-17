@@ -19,4 +19,5 @@ pub struct ServerState {
     // grow-only counter challenge
     pub last_seen_counter: u32,
     pub uncommited_deltas: HashMap<u32, u32>, // msg_id => delta
+    pub unresponded_msgs: HashMap<String, u32>, // client => msg_id
 }

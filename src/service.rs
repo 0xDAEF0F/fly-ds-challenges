@@ -1,4 +1,7 @@
-use crate::{Msg, ServerState};
+use crate::{
+    Msg, ServerState,
+    client::{ClientMessage, ClientPayload},
+};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -99,6 +102,20 @@ impl ServiceMsg {
             ServicePayload::CasOk { in_reply_to, .. } => {
                 if let Some(delta) = server_state.uncommited_deltas.remove(&in_reply_to) {
                     server_state.last_seen_counter += delta;
+                }
+
+                for (client, msg_id) in server_state.unresponded_msgs.drain() {
+                    let msg = ClientMessage {
+                        id: None,
+                        src: server_state.node_id.clone().unwrap(),
+                        dest: client,
+                        body: ClientPayload::ReadOk {
+                            in_reply_to: msg_id,
+                            value: server_state.last_seen_counter
+                                + server_state.uncommited_deltas.values().sum::<u32>(),
+                        },
+                    };
+                    _ = tx.send(Msg::Client(msg));
                 }
             }
             ServicePayload::Error { code, .. } => {
