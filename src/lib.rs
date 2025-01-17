@@ -7,8 +7,8 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Msg {
-    Client(client::ClientMessage),
     Service(service::ServiceMsg),
+    Client(client::ClientMessage),
 }
 
 #[derive(Debug, Default)]
