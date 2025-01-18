@@ -80,9 +80,7 @@ impl ClientMessage {
                     server_state.msg_id
                 };
 
-                let (prev_msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
-                *prev_msg_id = next_msg_id;
-                *uncommited_delta += delta;
+                server_state.uncommited_delta += delta;
 
                 let msg = ServiceMsg {
                     id: None,

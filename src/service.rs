@@ -64,8 +64,11 @@ impl ServiceMsg {
                     server_state.msg_id
                 };
 
-                let (prev_msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
-                *prev_msg_id = next_msg_id;
+                if server_state.uncommited_delta > 0 {
+                    server_state
+                        .sent_deltas
+                        .insert(next_msg_id, server_state.uncommited_delta);
+                }
 
                 let msg = ServiceMsg {
                     id: None,
@@ -77,7 +80,7 @@ impl ServiceMsg {
                         from: value,
                         to: format!(
                             "{}@{}",
-                            num + *uncommited_delta,
+                            server_state.counter + server_state.uncommited_delta,
                             server_state.node_id.clone().unwrap()
                         ),
                     },
@@ -99,12 +102,10 @@ impl ServiceMsg {
                 }
             }
             ServicePayload::CasOk { in_reply_to, .. } => {
-                let (msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
+                let delta = server_state.sent_deltas.get(&in_reply_to).unwrap();
 
-                if in_reply_to == *msg_id {
-                    server_state.counter += *uncommited_delta;
-                    *uncommited_delta = 0;
-                }
+                server_state.counter += delta;
+                server_state.uncommited_delta -= delta;
 
                 for (client, msg_id) in server_state.unresponded_msgs.drain() {
                     let msg = ClientMessage {
@@ -113,7 +114,7 @@ impl ServiceMsg {
                         dest: client,
                         body: ClientPayload::ReadOk {
                             in_reply_to: msg_id,
-                            value: server_state.counter,
+                            value: server_state.counter + server_state.uncommited_delta,
                         },
                     };
                     _ = tx.send(Msg::Client(msg));
