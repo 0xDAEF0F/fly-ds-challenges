@@ -82,8 +82,7 @@ impl ServiceMsg {
                 };
                 _ = tx.send(Msg::Service(msg));
             }
-            ServicePayload::WriteOk { .. } => {}
-            ServicePayload::CasOk { in_reply_to, .. } => {
+            ServicePayload::CasOk { in_reply_to, .. } | ServicePayload::WriteOk { in_reply_to } => {
                 let (msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
 
                 if in_reply_to == *msg_id {
