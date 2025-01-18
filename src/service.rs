@@ -57,6 +57,10 @@ impl ServiceMsg {
             ServicePayload::ReadOk { value, .. } => {
                 let num = value.split_once('@').unwrap().0.parse::<u32>().unwrap();
 
+                if num > server_state.counter {
+                    server_state.counter = num;
+                }
+
                 let next_msg_id = {
                     server_state.msg_id += 1;
                     server_state.msg_id
