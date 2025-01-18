@@ -102,7 +102,11 @@ impl ServiceMsg {
                 }
             }
             ServicePayload::CasOk { in_reply_to, .. } => {
-                let delta = server_state.sent_deltas.get(&in_reply_to).unwrap();
+                let delta = server_state
+                    .sent_deltas
+                    .get(&in_reply_to)
+                    .copied()
+                    .unwrap_or_default();
 
                 server_state.counter += delta;
                 server_state.uncommited_delta -= delta;
