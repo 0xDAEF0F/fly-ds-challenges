@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::{
     Msg, ServerState,
     client::{ClientMessage, ClientPayload},
@@ -86,7 +84,21 @@ impl ServiceMsg {
                 };
                 _ = tx.send(Msg::Service(msg));
             }
-            ServicePayload::CasOk { in_reply_to, .. } | ServicePayload::WriteOk { in_reply_to } => {
+            ServicePayload::WriteOk { .. } => {
+                for (client, msg_id) in server_state.unresponded_msgs.drain() {
+                    let msg = ClientMessage {
+                        id: None,
+                        src: server_state.node_id.clone().unwrap(),
+                        dest: client,
+                        body: ClientPayload::ReadOk {
+                            in_reply_to: msg_id,
+                            value: server_state.counter,
+                        },
+                    };
+                    _ = tx.send(Msg::Client(msg));
+                }
+            }
+            ServicePayload::CasOk { in_reply_to, .. } => {
                 let (msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
 
                 if in_reply_to == *msg_id {
