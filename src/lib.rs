@@ -17,7 +17,7 @@ pub struct ServerState {
     // monotonically increasing for each node
     pub msg_id: u32,
     // grow-only counter challenge
-    pub last_seen_counter: u32,
-    pub uncommited_deltas: HashMap<u32, u32>, // msg_id => delta
+    pub counter: u32,
+    pub uncommited_delta: (u32, u32),           // (msg_id, delta)
     pub unresponded_msgs: HashMap<String, u32>, // client => msg_id
 }

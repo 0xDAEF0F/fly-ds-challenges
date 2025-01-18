@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::{
     Msg, ServerState,
     client::{ClientMessage, ClientPayload},
@@ -22,13 +24,13 @@ pub enum ServicePayload {
         key: String,
     },
     ReadOk {
-        value: u32,
+        value: String,
         in_reply_to: u32,
     },
     Write {
         msg_id: u32,
         key: String,
-        value: u32,
+        value: String,
     },
     WriteOk {
         in_reply_to: u32,
@@ -36,8 +38,8 @@ pub enum ServicePayload {
     Cas {
         msg_id: u32,
         key: String,
-        from: u32,
-        to: u32,
+        from: String,
+        to: String,
     },
     CasOk {
         in_reply_to: u32,
@@ -53,55 +55,40 @@ impl ServiceMsg {
     pub fn process(self, server_state: &mut ServerState, tx: UnboundedSender<Msg>) {
         match self.body {
             ServicePayload::ReadOk { value, .. } => {
-                if value >= server_state.last_seen_counter {
-                    server_state.last_seen_counter = value;
-                } else {
-                    panic!("`ReadOk` value is less than `last_seen_counter`");
-                }
+                let num = value.split_once('@').unwrap().0.parse::<u32>().unwrap();
 
-                // retry uncommited deltas
-                if !server_state.uncommited_deltas.is_empty() {
-                    let acc_deltas = server_state
-                        .uncommited_deltas
-                        .drain()
-                        .map(|(_, d)| d)
-                        .sum::<u32>();
+                let next_msg_id = {
                     server_state.msg_id += 1;
-                    server_state
-                        .uncommited_deltas
-                        .insert(server_state.msg_id, acc_deltas);
-                    let msg = ServiceMsg {
-                        id: None,
-                        src: server_state.node_id.clone().unwrap(),
-                        dest: "seq-kv".to_string(),
-                        body: ServicePayload::Cas {
-                            msg_id: server_state.msg_id,
-                            key: "counter".to_string(),
-                            from: server_state.last_seen_counter,
-                            to: server_state.last_seen_counter + acc_deltas,
-                        },
-                    };
-                    _ = tx.send(Msg::Service(msg));
-                } else {
-                    server_state.msg_id += 1;
-                    let msg = ServiceMsg {
-                        id: None,
-                        src: server_state.node_id.clone().unwrap(),
-                        dest: "seq-kv".to_string(),
-                        body: ServicePayload::Cas {
-                            msg_id: server_state.msg_id,
-                            key: "counter".to_string(),
-                            from: server_state.last_seen_counter,
-                            to: server_state.last_seen_counter,
-                        },
-                    };
-                    _ = tx.send(Msg::Service(msg));
-                }
+                    server_state.msg_id
+                };
+
+                let (prev_msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
+                *prev_msg_id = next_msg_id;
+
+                let msg = ServiceMsg {
+                    id: None,
+                    src: server_state.node_id.clone().unwrap(),
+                    dest: "seq-kv".to_string(),
+                    body: ServicePayload::Cas {
+                        msg_id: next_msg_id,
+                        key: "counter".to_string(),
+                        from: value,
+                        to: format!(
+                            "{}@{}",
+                            num + *uncommited_delta,
+                            server_state.node_id.clone().unwrap()
+                        ),
+                    },
+                };
+                _ = tx.send(Msg::Service(msg));
             }
             ServicePayload::WriteOk { .. } => {}
             ServicePayload::CasOk { in_reply_to, .. } => {
-                if let Some(delta) = server_state.uncommited_deltas.remove(&in_reply_to) {
-                    server_state.last_seen_counter += delta;
+                let (msg_id, uncommited_delta) = &mut server_state.uncommited_delta;
+
+                if in_reply_to == *msg_id {
+                    server_state.counter += *uncommited_delta;
+                    *uncommited_delta = 0;
                 }
 
                 for (client, msg_id) in server_state.unresponded_msgs.drain() {
@@ -111,8 +98,7 @@ impl ServiceMsg {
                         dest: client,
                         body: ClientPayload::ReadOk {
                             in_reply_to: msg_id,
-                            value: server_state.last_seen_counter
-                                + server_state.uncommited_deltas.values().sum::<u32>(),
+                            value: server_state.counter,
                         },
                     };
                     _ = tx.send(Msg::Client(msg));
@@ -129,7 +115,7 @@ impl ServiceMsg {
                             body: ServicePayload::Write {
                                 msg_id: server_state.msg_id,
                                 key: "counter".to_string(),
-                                value: 0,
+                                value: "0@init".to_string(),
                             },
                         };
                         _ = tx.send(Msg::Service(msg));
